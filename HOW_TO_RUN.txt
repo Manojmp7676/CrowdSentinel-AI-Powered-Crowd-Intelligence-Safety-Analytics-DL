@@ -1,0 +1,75 @@
+# How To Run - Kumbh Mela Crowd Detection System
+
+## Step 1: Install Python (if not installed)
+
+Download Python 3.11 from: https://www.python.org/downloads/
+Check "Add Python to PATH" during installation.
+
+## Step 2: Install Dependencies
+
+Open Command Prompt or PowerShell and run:
+
+```
+cd C:\Kumbhmela
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install opencv-python numpy pandas matplotlib streamlit scipy pyyaml tqdm Pillow
+```
+
+## Step 3: Train the Model (First Time Only)
+
+```
+cd C:\Kumbhmela
+python -c "from src.training.train import train; train('config.yaml')"
+```
+
+Wait for training to complete. This creates models/best_crowd_density.pth
+
+If you skip this step, the dashboard will use the existing trained model.
+
+## Step 4: Launch the Dashboard
+
+```
+cd C:\Kumbhmela
+python -m streamlit run dashboard\app.py
+```
+
+## Step 5: Open in Browser
+
+Go to: http://localhost:8501
+
+## Step 6: Use the Dashboard
+
+1. Click "Browse files" or drag-drop your crowd video
+2. Click "Run Crowd Analysis" button
+3. Wait 10-15 seconds
+4. View results: metrics, heatmap video, graphs
+5. Click download buttons to save results
+
+## Run From Command Line (without dashboard)
+
+Analyze a video directly:
+
+```
+cd C:\Kumbhmela
+python run.py --video "C:\path\to\your\video.mp4
+```
+
+Results will be saved in outputs/ folder.
+
+## Troubleshooting
+
+### "streamlit is not recognized"
+Use: python -m streamlit run dashboard\app.py
+
+### "Model not found"
+Run training step (Step 3) first.
+
+### Video not playing in dashboard
+Make sure video is mp4, avi, mov, or mkv format.
+
+### Analysis is slow
+The system processes 15 frames max. Large videos take 10-15 seconds on CPU.
+
+### Port 8501 already in use
+Kill existing streamlit process or use different port:
+python -m streamlit run dashboard\app.py --server.port 8502

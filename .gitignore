@@ -1,0 +1,29 @@
+# Python caches and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Generated datasets, model weights, reports, and media
+data/
+outputs/
+runs/
+models/
+*.pt
+*.onnx
+*.mp4
+*.avi
+*.mov
+*.part
+
+# Notebook and OS metadata
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db

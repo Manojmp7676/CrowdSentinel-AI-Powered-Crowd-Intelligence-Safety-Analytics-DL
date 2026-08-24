@@ -1,0 +1,237 @@
+# Kumbh Mela Crowd Detection System - Complete Project Prompt
+
+Copy everything below the line and paste into any AI coding assistant.
+
+---
+
+BUILD THIS PROJECT FROM SCRATCH:
+
+## Project: Kumbh Mela Crowd Detection System
+
+A crowd density estimation and risk assessment system for video footage using deep learning. User uploads a crowd video, system analyzes it and displays crowd density, risk score, heatmap overlay video, and density-over-time graphs.
+
+## What The System Does
+
+1. User uploads a crowd video via Streamlit dashboard
+2. System extracts and samples frames from the video
+3. A trained CSRNet deep learning model predicts crowd density for each frame
+4. System calculates: estimated crowd count, crowd status (Low/Moderate/High/Very High), risk score (0-100), risk level (Low/Medium/High/Critical)
+5. Generates a heatmap overlay video showing density hotspots
+6. Shows density-over-time graph and status distribution chart
+7. Provides download of processed video and analysis results as JSON
+
+## Project Structure
+
+```
+kumbh-mela-crowd-detection/
+  data/ucf_cc50/
+    images/
+    ground_truth/
+    processed_images/
+    density_maps/
+    dataset_info.json
+    splits.json
+  models/
+    best_crowd_density.pth
+  src/
+    dataset/
+      prepare_ucf.py
+      crowd_dataset.py
+    model/
+      csrnet.py
+    training/
+      train.py
+    inference/
+      predictor.py
+    video/
+      processor.py
+    analysis/
+      risk.py
+  dashboard/
+    app.py
+  outputs/
+  config.yaml
+  config_train.yaml
+  requirements.txt
+  run.py
+  README.md
+```
+
+## Technology Stack
+
+- Python 3.11
+- PyTorch (CPU, with CUDA fallback)
+- OpenCV
+- NumPy, Pandas, Matplotlib
+- Streamlit for dashboard
+- torchvision for VGG-16 pretrained weights
+
+Install: torch, torchvision, opencv-python, numpy, pandas, matplotlib, streamlit, scipy, pyyaml, tqdm, Pillow
+
+## Dataset: UCF CC50 Crowd Dataset
+
+Download from: https://www.crcv.ucf.edu/data/crowd.php
+
+Annotation format: Each .txt file has one line per person with format: x_coordinate y_coordinate
+
+If dataset not available, generate synthetic data: 50 images (224x224), each with 10-300 random dot annotations, for pipeline testing.
+
+### Density Map Generation
+
+Use geometry-adaptive Gaussian kernels:
+- For each person annotation point, place a Gaussian centered at that point
+- Sigma = average distance to k=3 nearest neighbors divided by 2
+- Minimum sigma = 15 as fallback for isolated points
+- Sum all Gaussians to create the density map
+- When resizing density maps to 224x224, scale by area ratio to preserve total count: scale_factor = (orig_w * orig_h) / (target_w * target_h)
+
+## Model: CSRNet Architecture
+
+Front-end: VGG-16 pretrained on ImageNet, using layers up to conv5_3/relu5_3 (features[0] through features[29])
+
+Back-end: Dilated convolutional layers:
+- Conv2d(512, 512, 3, padding=2, dilation=2) + ReLU
+- Conv2d(512, 512, 3, padding=2, dilation=2) + ReLU
+- Conv2d(512, 512, 3, padding=2, dilation=2) + ReLU
+- Conv2d(512, 256, 3, padding=2, dilation=2) + ReLU
+- Conv2d(256, 128, 3, padding=1, dilation=1) + ReLU
+- Conv2d(128, 64, 3, padding=1, dilation=1) + ReLU
+- Conv2d(64, 1, 1) - output single-channel density map
+
+Upsample: After backend, use torch.nn.functional.interpolate with mode=bilinear to match input spatial size (H, W).
+
+Backend weights: Kaiming normal initialization.
+
+Input: (B, 3, H, W) tensor
+Output: (B, 1, H, W) density map
+Count = sum of all density values
+
+## Training Configuration
+
+- Loss: MSE between predicted and ground truth density maps
+- Optimizer: Adam (lr=0.0001, weight_decay=0.001)
+- Scheduler: CosineAnnealingLR
+- Batch size: 2
+- Epochs: 100 (with early stopping, patience=15)
+- Evaluation metrics: MAE and RMSE between predicted count and ground truth count
+- Save best model checkpoint based on validation MAE
+- Use torch.load with weights_only=False for PyTorch 2.6+
+
+## Video Processing Pipeline (MUST BE FAST - 10-15 seconds)
+
+This is critical for user experience. The pipeline must complete in 10-15 seconds on CPU.
+
+Steps:
+1. Open video with cv2.VideoCapture
+2. Calculate max_frames=15 and sample_rate = total_frames // max_frames
+3. For each sampled frame:
+   a. Resize to 128x128 for model inference (NOT 224 - too slow)
+   b. Convert BGR to RGB directly: frame[:,:,::-1]
+   c. Convert to float32, divide by 255
+   d. Normalize with ImageNet mean=[0.485,0.456,0.406] std=[0.229,0.224,0.225]
+   e. Transpose to CHW and convert to tensor: torch.from_numpy(arr.transpose(2,0,1)).unsqueeze(0)
+   f. Run model with torch.no_grad()
+   g. Upscale density map to original resolution for heatmap
+   h. Generate heatmap overlay: cv2.applyColorMap + cv2.addWeighted
+   i. Add count text on frame
+   j. Write to output video
+4. Collect frame_data: timestamp, count, density stats per frame
+
+Key speed rules:
+- NEVER use PIL for image conversion - too slow, use direct numpy
+- Use 128px inference resolution
+- Limit to 15 frames max
+- Always use torch.no_grad() for inference
+- Model loads once, stays in memory for subsequent analyses
+
+## Risk Calculation Logic
+
+Configurable thresholds in config.yaml:
+
+density_thresholds:
+  low: 0.05
+  moderate: 0.15
+  high: 0.30
+  very_high: 0.50
+
+Status labels: Low, Moderate, High, Very High
+Risk scores: 0-25 (Low), 26-50 (Medium), 51-75 (High), 76-100 (Critical)
+
+Risk score calculation uses linear interpolation within each band.
+
+MUST include disclaimer on all outputs: "PROTOTYPE/MODEL-DERIVED INDICATOR ONLY. Not an official safety assessment."
+
+## Streamlit Dashboard Layout
+
+Page config: title="Kumbh Mela Crowd Detection System", layout="wide"
+
+Sidebar:
+- About section with system description
+- Model info (CSRNet, VGG-16 backbone)
+- Risk thresholds display from config
+
+Main area:
+1. Title and disclaimer warning
+2. Video upload: st.file_uploader for mp4/avi/mov/mkv
+3. Video preview: st.video(str(temp_video))
+4. Analyze button: st.button("Run Crowd Analysis", type="primary")
+5. Progress bar: st.progress that updates during processing via callback
+6. Results section:
+   - Metrics row (4 columns): Avg Count, Peak Count, Crowd Status, Risk Score
+   - Risk level display with color coding (green/orange/red/purple)
+   - Density metrics: Avg Density, Peak Density
+7. Videos section (2 columns):
+   - Left: Original video
+   - Right: Heatmap overlay video - READ FILE AS BYTES first: open(output_video, "rb").read() then st.video(video_bytes, format="video/mp4")
+8. Density over time graph using matplotlib (2 subplots: count and density)
+9. Status distribution pie chart
+10. Download buttons: Analysis JSON and Processed Video
+
+## How To Run
+
+Train model:
+```
+python -c "from src.training.train import train; train('config.yaml')"
+```
+
+Process video:
+```
+python run.py --video path/to/video.mp4
+```
+
+Launch dashboard:
+```
+cd project_directory
+python -m streamlit run dashboard/app.py
+```
+
+Then open http://localhost:8501 in browser.
+
+## Important Implementation Notes
+
+1. The torch.load calls must use weights_only=False for PyTorch 2.6+ compatibility
+2. Config YAML must not contain emoji characters (causes encoding errors on Windows)
+3. The video processor must use progress_callback function parameter for Streamlit progress bar updates
+4. Output video path must be read as bytes for Streamlit display (Windows path issues)
+5. The CSRNet model output must be upsampled with F.interpolate to match input size
+6. num_workers should be 0 for Windows compatibility
+7. Frame processing must downscale to 128px for speed, then upscale density map to original resolution for quality heatmap overlay
+
+## Stage 1 Scope (DO NOT include)
+
+- Person tracking
+- Individual IDs
+- Crowd movement analysis
+- Anomaly/panic detection
+- Face recognition
+- Real-time CCTV processing
+- Multi-camera processing
+
+Keep code modular so these can be added later.
+
+## Current Issues To Fix
+
+1. Model was trained on synthetic data only - needs real UCF CC50 training for accurate counts
+2. Risk thresholds need tuning based on real crowd density distributions
+3. Dashboard heatmap video display required reading file as bytes (not path string)
+4. Processing speed requires 128px inference and max 15 frames limit

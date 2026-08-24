@@ -1,0 +1,84 @@
+# Kumbh Mela Crowd Detection System - Configuration
+# NOTE: Risk scores are PROTOTYPE/MODEL-DERIVED indicators, NOT official safety assessments.
+
+# Dataset
+dataset:
+  name: "UCF_CC50"
+  root_dir: "data/ucf_cc50"
+  image_dir: "data/ucf_cc50/images"
+  annotation_dir: "data/ucf_cc50/ground_truth"
+  image_size: [224, 224]
+  train_split: 0.8
+  val_split: 0.2
+
+# Model
+model:
+  architecture: "CSRNet"
+  backbone: "vgg16"
+  pretrained_backbone: true
+  checkpoint_dir: "models"
+  best_model_path: "models/best_crowd_density.pth"
+
+# Training
+training:
+  batch_size: 2
+  epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  lr_scheduler: "cosine"
+  early_stopping_patience: 15
+  save_every: 5
+  use_gpu: true
+  num_workers: 0
+
+# Video Processing
+video:
+  output_fps: 15
+  heatmap_alpha: 0.5
+  yolo_model: "yolov8n"     # Nano model (fastest)
+  confidence: 0.10          # Very low threshold to detect ALL people
+  proximity_threshold: 80
+  cluster_min_size: 4
+  use_tta: false            # Disabled for speed
+  tile_size: 640
+  tile_overlap: 128
+  frame_skip: 2             # Process every 2nd frame (50% speed boost)
+  max_frame_size: 960       # Larger for better small person detection
+  max_frames: 150           # Limit to 150 frames
+  custom_model_path: "runs/detect/models/yolo_ucf_cc50_v2/train/weights/best.pt"
+
+# Risk Thresholds (Prototype - configurable)
+risk:
+  # Density thresholds (people per pixel^2 x 1000)
+  density_thresholds:
+    low: 0.05
+    moderate: 0.15
+    high: 0.30
+    very_high: 0.50
+
+  # Status labels
+  status_labels:
+    low: "Low"
+    moderate: "Moderate"
+    high: "High"
+    very_high: "Very High"
+
+  # Risk score mapping (0-100)
+  risk_scores:
+    low: [0, 25]
+    moderate: [26, 50]
+    high: [51, 75]
+    very_high: [76, 100]
+
+  # Risk level labels
+  risk_levels:
+    low: "Low"
+    moderate: "Medium"
+    high: "High"
+    very_high: "Critical"
+
+# Dashboard
+dashboard:
+  title: "Kumbh Mela Crowd Detection System"
+  page_icon: "crowd"
+  layout: "wide"
